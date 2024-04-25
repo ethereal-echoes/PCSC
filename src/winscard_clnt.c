@@ -115,6 +115,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <sys/wait.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "misc.h"
 #include "pcscd.h"
@@ -126,6 +127,15 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "sys_generic.h"
 #include "winscard_msg.h"
 #include "utils.h"
+
+
+// For Proxy
+#include <arpa/inet.h> // inet_addr()
+#include <netdb.h>
+#include <strings.h> // bzero()
+#include <sys/socket.h>
+
+#define SA struct sockaddr
 
 /* Display, on stderr, a trace of the WinSCard calls with arguments and
  * results */
@@ -461,9 +471,44 @@ static LONG SCardEstablishContextTH(DWORD, LPCVOID, LPCVOID,
  * rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &hContext);
  * @endcode
  */
+
+int sockfd;
+
 LONG SCardEstablishContext(DWORD dwScope, LPCVOID pvReserved1,
 	LPCVOID pvReserved2, LPSCARDCONTEXT phContext)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
+
+	// <For Proxy> ===============================
+    int connfd;
+    struct sockaddr_in servaddr, cli;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1) {
+        printf("socket creation failed...\n");
+        exit(0);
+    }
+    else
+        printf("Socket successfully created..\n");
+
+    bzero(&servaddr, sizeof(servaddr));
+
+    // assign IP, PORT
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    servaddr.sin_port = htons(8888);
+
+    // connect the client socket to server socket
+    if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
+        != 0) {
+        printf("connection with the server failed...\n");
+        exit(0);
+    }
+    else
+        printf("connected to the server..\n");
+	fflush(stdout);
+	// </For Proxy> ============================
+
 	LONG rv;
 
 	API_TRACE_IN("%ld, %p, %p", dwScope, pvReserved1, pvReserved2)
@@ -687,6 +732,11 @@ cleanup:
  */
 LONG SCardReleaseContext(SCARDCONTEXT hContext)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
+	// <For Proxy> ============================
+	close(sockfd);
+	// </For Proxy> ===========================
+
 	LONG rv;
 	struct release_struct scReleaseStruct;
 	SCONTEXTMAP * currentContextMap;
@@ -801,6 +851,7 @@ LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader,
 	DWORD dwShareMode, DWORD dwPreferredProtocols, LPSCARDHANDLE phCard,
 	LPDWORD pdwActiveProtocol)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG rv;
 	struct connect_struct scConnectStruct;
 	SCONTEXTMAP * currentContextMap;
@@ -956,6 +1007,7 @@ LONG SCardReconnect(SCARDHANDLE hCard, DWORD dwShareMode,
 	DWORD dwPreferredProtocols, DWORD dwInitialization,
 	LPDWORD pdwActiveProtocol)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG rv;
 	struct reconnect_struct scReconnectStruct;
 	SCONTEXTMAP * currentContextMap;
@@ -1053,6 +1105,7 @@ end:
  */
 LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG rv;
 	struct disconnect_struct scDisconnectStruct;
 	SCONTEXTMAP * currentContextMap;
@@ -1143,7 +1196,7 @@ error:
  */
 LONG SCardBeginTransaction(SCARDHANDLE hCard)
 {
-
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG rv;
 	struct begin_struct scBeginStruct;
 	SCONTEXTMAP * currentContextMap;
@@ -1244,6 +1297,7 @@ LONG SCardBeginTransaction(SCARDHANDLE hCard)
  */
 LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG rv;
 	struct end_struct scEndStruct;
 	SCONTEXTMAP * currentContextMap;
@@ -1390,6 +1444,7 @@ LONG SCardStatus(SCARDHANDLE hCard, LPSTR szReaderName,
 	LPDWORD pcchReaderLen, LPDWORD pdwState,
 	LPDWORD pdwProtocol, LPBYTE pbAtr, LPDWORD pcbAtrLen)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	DWORD dwReaderLen, dwAtrLen;
 	LONG rv;
 	int i;
@@ -1681,6 +1736,7 @@ end:
 LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 	SCARD_READERSTATE *rgReaderStates, DWORD cReaders)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	SCARD_READERSTATE *currReader;
 	READER_STATE *rContext;
 	long dwTime;
@@ -2230,6 +2286,7 @@ LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBuffer,
 	DWORD cbSendLength, LPVOID pbRecvBuffer, DWORD cbRecvLength,
 	LPDWORD lpBytesReturned)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG rv;
 	struct control_struct scControlStruct;
 	SCONTEXTMAP * currentContextMap;
@@ -2440,6 +2497,7 @@ end:
 LONG SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPBYTE pbAttr,
 	LPDWORD pcbAttrLen)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG ret;
 	unsigned char *buf = NULL;
 
@@ -2523,6 +2581,7 @@ end:
 LONG SCardSetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPCBYTE pbAttr,
 	DWORD cbAttrLen)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG ret;
 
 	PROFILE_START
@@ -2682,6 +2741,13 @@ LONG SCardTransmit(SCARDHANDLE hCard, const SCARD_IO_REQUEST *pioSendPci,
 	SCARD_IO_REQUEST *pioRecvPci, LPBYTE pbRecvBuffer,
 	LPDWORD pcbRecvLength)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
+
+	// <For Proxy> ===========================
+	unsigned char proxy_buffer[200];
+	send(sockfd, pbSendBuffer, cbSendLength,0);
+	// </For Proxy> ==========================
+
 	LONG rv;
 	SCONTEXTMAP * currentContextMap;
 	CHANNEL_MAP * pChannelMap;
@@ -2793,6 +2859,14 @@ end:
 
 	PROFILE_END(rv)
 
+	// <For Proxy> ===========================
+	int received_bytes = read(sockfd, proxy_buffer, 1);
+	if(received_bytes > 0 && proxy_buffer[0] > 0){
+		*pcbRecvLength = proxy_buffer[0];
+		recv(sockfd, pbRecvBuffer, pcbRecvLength,0);
+	}
+	// </For Proxy> ===========================
+
 	return rv;
 }
 
@@ -2858,9 +2932,13 @@ end:
  * rv = SCardFreeMemory(hContext, mszReaders);
  * @endcode
  */
+
+
 LONG SCardListReaders(SCARDCONTEXT hContext, /*@unused@*/ LPCSTR mszGroups,
 	LPSTR mszReaders, LPDWORD pcchReaders)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
+
 	DWORD dwReadersLen = 0;
 	int i;
 	SCONTEXTMAP * currentContextMap;
@@ -2980,6 +3058,7 @@ end:
 
 LONG SCardFreeMemory(SCARDCONTEXT hContext, LPCVOID pvMem)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG rv = SCARD_S_SUCCESS;
 
 	PROFILE_START
@@ -3051,6 +3130,7 @@ LONG SCardFreeMemory(SCARDCONTEXT hContext, LPCVOID pvMem)
 LONG SCardListReaderGroups(SCARDCONTEXT hContext, LPSTR mszGroups,
 	LPDWORD pcchGroups)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	LONG rv = SCARD_S_SUCCESS;
 	SCONTEXTMAP * currentContextMap;
 	char *buf = NULL;
@@ -3140,6 +3220,7 @@ end:
  */
 LONG SCardCancel(SCARDCONTEXT hContext)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
 	SCONTEXTMAP * currentContextMap;
 	LONG rv = SCARD_S_SUCCESS;
 	uint32_t dwClientID = 0;
@@ -3230,6 +3311,8 @@ error:
  */
 LONG SCardIsValidContext(SCARDCONTEXT hContext)
 {
+	printf("\nCalled:: %s\n", __func__);fflush(stdout);
+
 	LONG rv;
 
 	PROFILE_START
